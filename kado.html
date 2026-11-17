@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心理戦マインドバトル - 4人対戦対応版</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --accent-p1: #3b82f6;
+      --accent-p2: #ef4444;
+      --accent-p3: #10b981;
+      --accent-p4: #f59e0b;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+    body {
+      margin: 0;
+      padding: 15px;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .game-container {
+      width: 100%;
+      max-width: 900px;
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border: 1px solid #334155;
+    }
+    h1, h2, h3 { text-align: center; margin-top: 0; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    
+    .btn {
+      background: #334155;
+      color: #fff;
+      border: 1px solid #475569;
+      padding: 10px 18px;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: bold;
+    }
+    .btn:hover:not(:disabled) {
+      background: #475569;
+      transform: translateY(-2px);
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .btn-primary { background: var(--accent-p1); border: none; }
+    .btn-primary:hover:not(:disabled) { background: #2563eb; }
+    .btn-danger { background: var(--accent-p2); border: none; }
+    .btn-danger:hover:not(:disabled) { background: #dc2626; }
+    .btn-success { background: var(--accent-p3); border: none; }
+    .btn-success:hover:not(:disabled) { background: #059669; }
+    .btn-warning { background: var(--accent-p4); border: none; color: #000; }
+    .btn-warning:hover:not(:disabled) { background: #d97706; }
+    
+    .menu-buttons {
+      display: flex; flex-direction: column; gap: 16px; max-width: 380px; margin: 30px auto;
+    }
+
+    .room-box {
+      background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 16px;
+    }
+    .room-code-display {
+      font-size: 2.6rem; font-weight: bold; letter-spacing: 6px; color: #eab308; margin: 15px 0; font-family: monospace;
+    }
+    .room-input {
+      font-size: 1.8rem; text-align: center; letter-spacing: 6px; width: 180px; padding: 10px;
+      border-radius: 8px; border: 2px solid #475569; background: #1e293b; color: #fff; font-family: monospace;
+    }
+
+    .build-container {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    }
+    .stat-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #0f172a; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px;
+    }
+    .saved-builds-list {
+      display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;
+    }
+    .saved-card {
+      background: #0f172a; padding: 10px 14px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155;
+    }
+
+    .config-group {
+      margin: 20px 0; text-align: center;
+    }
+    .point-stepper {
+      display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 8px;
+    }
+    .point-val {
+      font-size: 2rem; font-weight: bold; color: #eab308; width: 80px; text-align: center;
+    }
+    
+    .shop-header {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #0f172a; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px;
+    }
+    .item-list { display: flex; flex-direction: column; gap: 12px; }
+    .item-card {
+      background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .item-info { max-width: 60%; }
+    .item-name { font-weight: bold; font-size: 1.1rem; color: #38bdf8; }
+    .item-desc { font-size: 0.85rem; color: var(--text-sub); margin-top: 4px; }
+    .item-controls { display: flex; align-items: center; gap: 8px; }
+    .item-count { font-weight: bold; width: 30px; text-align: center; }
+    
+    .pass-box {
+      text-align: center; padding: 40px 20px; background: #0f172a; border-radius: 12px; margin: 20px 0;
+    }
+    
+    .status-bar {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; background: #0f172a;
+      padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem;
+    }
+    .status-item {
+      display: flex; flex-direction: column; background: #1e293b; padding: 8px; border-radius: 6px; border: 1px solid #334155;
+    }
+    
+    .gauge-container {
+      width: 100%; height: 12px; background: #334155; border-radius: 6px; overflow: hidden; margin-top: 4px; border: 1px solid #475569;
+    }
+    .gauge-fill { height: 100%; width: 100%; transition: width 0.3s ease; }
+    .hp-fill { background: linear-gradient(90deg, #ef4444, #f43f5e); }
+    .charge-fill { background: linear-gradient(90deg, #f97316, #eab308); }
+    
+    .gauge-text {
+      font-size: 0.75rem; color: var(--text-sub); margin-top: 2px; display: flex; justify-content: space-between;
+    }
+
+    .actions-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+    }
+    .action-btn {
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      padding: 14px; background: #0f172a; border: 2px solid #334155; border-radius: 10px;
+      color: #fff; cursor: pointer; transition: 0.2s;
+    }
+    .action-btn.selected { border-color: #38bdf8; background: #1e293b; box-shadow: 0 0 10px rgba(56,189,248,0.4); }
+    .action-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 6px; }
+    .action-detail { font-size: 0.8rem; color: var(--text-sub); }
+    
+    .countdown-circle {
+      width: 100px; height: 100px; border-radius: 50%; border: 6px solid var(--accent-p1);
+      display: flex; justify-content: center; align-items: center; font-size: 3rem;
+      font-weight: bold; margin: 30px auto; color: var(--accent-p1);
+    }
+    .result-board {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0;
+    }
+    .result-card {
+      background: #0f172a; padding: 14px; border-radius: 8px; text-align: center; border: 1px solid #334155;
+    }
+    .log-box {
+      background: #0f172a; padding: 15px; border-radius: 8px; font-family: monospace;
+      color: #38bdf8; max-height: 180px; overflow-y: auto; margin: 15px 0; font-size: 0.95rem;
+    }
+    
+    .modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--card-bg); padding: 24px; border-radius: 12px; max-width: 400px; text-align: center; }
+    .modal-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+    .spinner {
+      border: 4px solid #334155; border-top: 4px solid #38bdf8; border-radius: 50%;
+      width: 36px; height: 36px; animation: spin 1s linear infinite; margin: 15px auto;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  
+  <!-- 0. スタート画面 -->
+  <div id="screen-start" class="screen active">
+    <h1>心理戦マインドバトル</h1>
+    <p style="text-align: center; color: var(--text-sub);">カスタムビルドで戦う頭脳デスバトル（4人対戦対応）</p>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" style="padding: 14px; font-size: 1.2rem;" onclick="goToBuildScreen()">キャラ育成（ビルド作成）</button>
+      <button class="btn btn-success" style="padding: 14px; font-size: 1.2rem;" onclick="goToModeSelect('online')">オンライン対戦ロビー</button>
+      <button class="btn btn-warning" style="padding: 14px; font-size: 1.1rem;" onclick="goToModeSelect('local')">ローカル対戦（1台 / 部屋CPU）</button>
+    </div>
+  </div>
+
+  <!-- モード選択 (2人 or 4人) -->
+  <div id="screen-mode-select" class="screen">
+    <h2 id="mode-select-title">対戦人数を選んでください</h2>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" style="padding: 14px; font-size: 1.2rem;" onclick="selectPlayerCount(2)">2人対戦モード</button>
+      <button class="btn btn-success" style="padding: 14px; font-size: 1.2rem;" onclick="selectPlayerCount(4)">4人対戦モード</button>
+      <button class="btn" style="margin-top: 10px;" onclick="showScreen('screen-start')">戻る</button>
+    </div>
+  </div>
+
+  <!-- オンラインロビー画面 -->
+  <div id="screen-online-lobby" class="screen">
+    <h2>オンライン対戦ロビー (<span id="online-mode-label">2人</span>)</h2>
+    
+    <div class="room-box">
+      <h3 style="margin-bottom: 10px;">プレイヤー設定</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 0.85rem; display: block; margin-bottom: 4px; color: var(--text-sub);">プレイヤー名</label>
+        <input type="text" id="online-player-name" value="プレイヤー" style="width: 100%; max-width: 300px; padding: 8px; background: #1e293b; color: #fff; border-radius: 6px; border: 1px solid #475569; text-align: center; font-size: 1rem;">
+      </div>
+      <div>
+        <label style="font-size: 0.85rem; display: block; margin-bottom: 4px; color: var(--text-sub);">使用ビルド</label>
+        <select id="online-my-build-select" style="width: 100%; max-width: 300px; padding: 8px; background: #1e293b; color: #fff; border-radius: 6px; border: 1px solid #475569;"></select>
+      </div>
+    </div>
+
+    <!-- フリー対戦 -->
+    <div class="room-box" id="box-free-match" style="border-color: #10b981;">
+      <h3 style="color: #10b981;">フリー対戦（自動マッチング）</h3>
+      <p style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 12px;">人数が揃うと自動でゲームが始まります</p>
+      <button class="btn btn-success" style="width: 100%; max-width: 320px; padding: 14px; font-size: 1.15rem;" onclick="startFreeMatchmaking()">フリー対戦を開始する</button>
+      <div id="free-match-status" style="margin-top: 10px; font-size: 0.9rem; color: #38bdf8;"></div>
+    </div>
+
+    <!-- 合言葉部屋 -->
+    <div id="online-choice-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="room-box" id="box-create-room">
+        <h3 style="color: var(--accent-p1);">部屋を作る（合言葉）</h3>
+        <div class="config-group" style="margin: 5px 0;">
+          <label style="font-size: 0.8rem;">初期ポイント</label>
+          <div class="point-stepper">
+            <button class="btn" style="padding:2px 8px;" onclick="changeInitMoney(-5)">-5</button>
+            <span class="point-val" id="online-init-money-display" style="font-size:1.3rem;">30</span>
+            <button class="btn" style="padding:2px 8px;" onclick="changeInitMoney(5)">+5</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width: 100%; margin-top: 8px;" onclick="createPrivateRoom()">5桁の番号を発行</button>
+      </div>
+
+      <div class="room-box" id="box-join-room">
+        <h3 style="color: var(--accent-p2);">部屋に参加</h3>
+        <p style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 10px;">5桁の数字を入力</p>
+        <div style="margin: 15px 0;">
+          <input type="text" id="join-room-input" class="room-input" maxlength="5" placeholder="12345" style="width: 150px; font-size: 1.5rem;">
+        </div>
+        <button class="btn btn-danger" style="width: 100%;" onclick="joinPrivateRoom()">部屋に参加</button>
+        <div id="guest-status-msg" style="margin-top: 8px; font-size: 0.85rem; color: #eab308;"></div>
+      </div>
+    </div>
+
+    <!-- ホスト待機中（部屋・フリー共通） -->
+    <div id="host-waiting-view" style="display: none;" class="room-box">
+      <h3 id="host-wait-title" style="color: var(--accent-p1);">メンバーを待っています...</h3>
+      <div id="host-wait-sub" style="font-size: 0.85rem; color: var(--text-sub);">対戦相手に5桁の番号を伝えてください</div>
+      <div class="room-code-display" id="created-room-code">-----</div>
+      <div id="room-members-count" style="font-size: 1.1rem; color: #10b981; margin: 10px 0;">参加人数: 1 / 2</div>
+      
+      <div id="host-cpu-options" style="margin: 15px 0;">
+        <button class="btn btn-warning" onclick="fillRoomWithCPU()">残り枠をCPUで埋めて開始する</button>
+      </div>
+
+      <div class="spinner"></div>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px;">
+      <button class="btn" onclick="resetToTitle()">タイトルに戻る</button>
+    </div>
+  </div>
+
+  <!-- 通信待機画面 -->
+  <div id="screen-online-wait" class="screen">
+    <div class="pass-box">
+      <h2 id="wait-title">相手の操作を待っています...</h2>
+      <div class="spinner"></div>
+      <p id="wait-msg" style="color: var(--text-sub); margin: 20px 0;">全員の選択が完了すると自動的に進みます。</p>
+    </div>
+  </div>
+
+  <!-- 育成画面 -->
+  <div id="screen-build" class="screen">
+    <h2>キャラクター育成ビルド</h2>
+    <p style="text-align: center; color: var(--text-sub);">5ポイントを4つのステータスに割り振って保存しよう（最大8個）</p>
+    
+    <div style="text-align: center; margin: 15px 0;">
+      残りポイント: <strong id="build-points-left" style="color: #eab308; font-size: 1.3rem;">5</strong> pt
+    </div>
+
+    <div class="build-container">
+      <div>
+        <h3>割り振り</h3>
+        <div class="stat-row">
+          <span>攻撃スキル (1Lv=+20%ダメ)</span>
+          <div>
+            <button class="btn" onclick="adjustStat('atk', -1)">-</button>
+            <span id="stat-atk" style="margin: 0 10px; font-weight:bold;">0</span>
+            <button class="btn" onclick="adjustStat('atk', 1)">+</button>
+          </div>
+        </div>
+        <div class="stat-row">
+          <span>防御スキル (1Lv=+20%ガード)</span>
+          <div>
+            <button class="btn" onclick="adjustStat('def', -1)">-</button>
+            <span id="stat-def" style="margin: 0 10px; font-weight:bold;">0</span>
+            <button class="btn" onclick="adjustStat('def', 1)">+</button>
+          </div>
+        </div>
+        <div class="stat-row">
+          <span>盗賊スキル (1Lv=+10%所持金)</span>
+          <div>
+            <button class="btn" onclick="adjustStat('thief', -1)">-</button>
+            <span id="stat-thief" style="margin: 0 10px; font-weight:bold;">0</span>
+            <button class="btn" onclick="adjustStat('thief', 1)">+</button>
+          </div>
+        </div>
+        <div class="stat-row">
+          <span>逆転スキル (ピンチで全強化)</span>
+          <div>
+            <button class="btn" onclick="adjustStat('rev', -1)">-</button>
+            <span id="stat-rev" style="margin: 0 10px; font-weight:bold;">0</span>
+            <button class="btn" onclick="adjustStat('rev', 1)">+</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <input type="text" id="build-name-input" placeholder="ビルド名（例：脳筋アタッカー）" style="width: 100%; padding: 10px; box-sizing: border-box; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; margin-bottom: 10px;">
+          <button class="btn btn-primary" style="width: 100%;" onclick="saveCurrentBuild()">このビルドをセーブする</button>
+        </div>
+      </div>
+
+      <div>
+        <h3>保存済みビルド一覧 (<span id="saved-count">0</span> / 8)</h3>
+        <div class="saved-builds-list" id="saved-builds-container"></div>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+      <button class="btn" onclick="showScreen('screen-start')">メニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- ローカル / 部屋対戦前設定画面 -->
+  <div id="screen-init" class="screen">
+    <h1 id="init-screen-title">ローカル対戦設定 (<span id="init-mode-label">2人</span>)</h1>
+    
+    <div class="config-group">
+      <label>基本所持ポイント (最低15pt / 5pt刻み)</label>
+      <div class="point-stepper">
+        <button class="btn" onclick="changeInitMoney(-5)">-5</button>
+        <span class="point-val" id="init-money-display">30</span>
+        <button class="btn" onclick="changeInitMoney(5)">+5</button>
+      </div>
+    </div>
+
+    <div id="players-config-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px;">
+      <button class="btn btn-primary" style="padding: 12px 30px; font-size: 1.2rem;" onclick="startShopPhaseFromLocal()">ショップを開始する</button>
+    </div>
+  </div>
+
+  <!-- ショップ画面 -->
+  <div id="screen-shop" class="screen">
+    <h2>ショップタイム (<span id="shop-player-title">P1</span>)</h2>
+    <div class="shop-header">
+      <div>残りポイント: <strong id="shop-points" style="color:#eab308; font-size: 1.4rem;">0</strong> pt</div>
+      <div style="font-size: 0.85rem; color: var(--text-sub);">※価格の高い順</div>
+    </div>
+    
+    <div class="item-list" id="item-list-container"></div>
+    
+    <div style="text-align: center; margin-top: 24px;">
+      <button class="btn btn-primary" onclick="finishPlayerShop()">購入を決定して次へ</button>
+    </div>
+  </div>
+
+  <!-- 画面パス交代 -->
+  <div id="screen-pass" class="screen">
+    <div class="pass-box">
+      <h2 id="pass-title">プレイヤー1の番です</h2>
+      <p id="pass-msg" style="color: var(--text-sub); margin: 20px 0;">相手に見えないように画面を準備してください。</p>
+      <button class="btn btn-primary" style="font-size: 1.2rem;" onclick="proceedAfterPass()">準備完了（画面を表示）</button>
+    </div>
+  </div>
+
+  <!-- 行動選択画面 -->
+  <div id="screen-action" class="screen">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 id="action-player-title" style="margin:0;">プレイヤー1 の行動選択</h2>
+      <span style="font-weight:bold; color:var(--accent-p1);" id="current-turn-label">Turn 1</span>
+    </div>
+    
+    <div class="status-bar" id="action-status-bar"></div>
+    
+    <div id="absolute-attack-container" style="display:none; background:#1e293b; padding:10px; border-radius:8px; margin-bottom:15px; text-align:center; border:1px solid #eab308;">
+      <label style="cursor:pointer; font-weight:bold; color:#eab308;">
+        <input type="checkbox" id="checkbox-abs-attack" onchange="toggleAbsoluteAttack(this)"> ⚡ このターンの攻撃に「絶対攻撃」を適用する（防御・カウンター・壁を貫通）
+      </label>
+    </div>
+
+    <div id="target-select-container" style="margin-bottom: 12px; text-align: center; display:none;">
+      <label style="font-size: 0.9rem; color: var(--text-sub); margin-right: 8px;">対象プレイヤー:</label>
+      <select id="action-target-select" style="padding: 6px 12px; background: #1e293b; color: #fff; border-radius: 6px; border: 1px solid #475569; font-size: 1rem;"></select>
+    </div>
+    
+    <div class="actions-grid" id="actions-container"></div>
+    
+    <div style="text-align: center; margin-top: 24px;">
+      <button class="btn btn-primary" id="confirm-action-btn" disabled onclick="confirmAction()">行動を確定する</button>
+    </div>
+  </div>
+
+  <!-- カウントダウン -->
+  <div id="screen-count" class="screen">
+    <h2 style="text-align: center;">全員の選択が完了しました！</h2>
+    <p style="text-align: center; color: var(--text-sub);">結果を公開します。</p>
+    <div class="countdown-circle" id="countdown-num">5</div>
+  </div>
+
+  <!-- ターン結果 -->
+  <div id="screen-result" class="screen">
+    <h2>ターン <span id="res-turn-num">1</span> の結果</h2>
+    
+    <div class="result-board" id="result-board-container"></div>
+    
+    <div class="log-box" id="result-logs"></div>
+    
+    <div style="text-align: center; margin-top: 20px;">
+      <button class="btn btn-primary" id="next-turn-btn" onclick="nextTurnOrEnd()">次のターンへ</button>
+    </div>
+  </div>
+
+  <!-- ゲーム終了 -->
+  <div id="screen-gameover" class="screen">
+    <h1 id="gameover-title" style="font-size:2.5rem; color:#eab308; margin-bottom:10px;">GAME OVER</h1>
+    <p id="gameover-desc" style="text-align:center; font-size:1.3rem; margin-bottom:30px;"></p>
+    
+    <div style="text-align: center;">
+      <button class="btn btn-primary" style="font-size:1.2rem; padding:12px 30px;" onclick="resetToTitle()">タイトルに戻る</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ================= 画面切り替えの共通関数 =================
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+// ================= ビルド管理 =================
+let savedBuilds = JSON.parse(localStorage.getItem('mind_battle_builds')) || [
+  { name: '標準バランス型', stats: { atk: 1, def: 1, thief: 1, rev: 2 } }
+];
+
+let currentEditingBuild = { atk: 0, def: 0, thief: 0, rev: 0 };
+
+function goToBuildScreen() {
+  currentEditingBuild = { atk: 0, def: 0, thief: 0, rev: 0 };
+  updateBuildUI();
+  showScreen('screen-build');
+}
+
+function adjustStat(statName, delta) {
+  let totalUsed = currentEditingBuild.atk + currentEditingBuild.def + currentEditingBuild.thief + currentEditingBuild.rev;
+  if (delta > 0 && totalUsed >= 5) return;
+  if (delta < 0 && currentEditingBuild[statName] <= 0) return;
+  currentEditingBuild[statName] += delta;
+  updateBuildUI();
+}
+
+function updateBuildUI() {
+  let totalUsed = currentEditingBuild.atk + currentEditingBuild.def + currentEditingBuild.thief + currentEditingBuild.rev;
+  document.getElementById('build-points-left').innerText = 5 - totalUsed;
+  document.getElementById('stat-atk').innerText = currentEditingBuild.atk;
+  document.getElementById('stat-def').innerText = currentEditingBuild.def;
+  document.getElementById('stat-thief').innerText = currentEditingBuild.thief;
+  document.getElementById('stat-rev').innerText = currentEditingBuild.rev;
+  
+  const container = document.getElementById('saved-builds-container');
+  container.innerHTML = '';
+  document.getElementById('saved-count').innerText = savedBuilds.length;
+  
+  savedBuilds.forEach((b, idx) => {
+    const card = document.createElement('div');
+    card.className = 'saved-card';
+    card.innerHTML = `
+      <div>
+        <strong>${b.name}</strong><br>
+        <span style="font-size:0.8rem; color:var(--text-sub);">攻撃:${b.stats.atk} 防御:${b.stats.def} 盗賊:${b.stats.thief} 逆転:${b.stats.rev}</span>
+      </div>
+      <button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="deleteBuild(${idx})">削除</button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function saveCurrentBuild() {
+  if (savedBuilds.length >= 8) {
+    alert('保存できるビルドは最大8個までです！');
+    return;
+  }
+  const nameInput = document.getElementById('build-name-input').value.trim();
+  const buildName = nameInput || `マイビルド ${savedBuilds.length + 1}`;
+  savedBuilds.push({ name: buildName, stats: { ...currentEditingBuild } });
+  localStorage.setItem('mind_battle_builds', JSON.stringify(savedBuilds));
+  document.getElementById('build-name-input').value = '';
+  updateBuildUI();
+}
+
+function deleteBuild(idx) {
+  if (savedBuilds.length <= 1) {
+    alert('最低1つはビルドを残してください。');
+    return;
+  }
+  savedBuilds.splice(idx, 1);
+  localStorage.setItem('mind_battle_builds', JSON.stringify(savedBuilds));
+  updateBuildUI();
+}
+
+// ================= ゲームモード・人数設定 =================
+let gameMode = 'local'; // 'local' or 'online'
+let playerCount = 2; // 2 or 4
+
+function goToModeSelect(mode) {
+  gameMode = mode;
+  document.getElementById('mode-select-title').innerText = mode === 'online' ? 'オンライン対戦の人数を選んでください' : 'ローカル対戦の人数を選んでください';
+  showScreen('screen-mode-select');
+}
+
+function selectPlayerCount(count) {
+  playerCount = count;
+  if (gameMode === 'online') {
+    document.getElementById('online-mode-label').innerText = count + '人';
+    goToOnlineLobby();
+  } else {
+    document.getElementById('init-mode-label').innerText = count + '人';
+    setupLocalInitScreen();
+  }
+}
+
+// ================= ローカル / 部屋対戦設定 =================
+function setupLocalInitScreen() {
+  if (savedBuilds.length === 0) {
+    alert('まずはビルドを1つ以上作成してください！');
+    goToBuildScreen();
+    return;
+  }
+  const container = document.getElementById('players-config-container');
+  container.innerHTML = '';
+
+  for (let i = 0; i < playerCount; i++) {
+    let buildOptions = '';
+    savedBuilds.forEach((b, idx) => {
+      buildOptions += `<option value="${idx}">${b.name} (攻:${b.stats.atk}/防:${b.stats.def}/盗:${b.stats.thief}/逆:${b.stats.rev})</option>`;
+    });
+
+    let card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <h3 style="color:var(--accent-p${i+1});">プレイヤー ${i+1}</h3>
+      <input type="text" id="p${i}-name-input" value="プレイヤー${i+1}" style="width: 100%; padding: 8px; background: #0f172a; color: #fff; border-radius: 6px; border: 1px solid #475569; margin-bottom: 8px; box-sizing: border-box; text-align:center;">
+      <select id="p${i}-build-select" style="width: 100%; padding: 8px; background: #0f172a; color: #fff; border-radius: 6px; border: 1px solid #475569; margin-bottom: 8px;">${buildOptions}</select>
+      <label style="font-size:0.85rem; cursor:pointer;"><input type="checkbox" id="p${i}-cpu-check"> CPUにする</label>
+    `;
+    container.appendChild(card);
+  }
+  showScreen('screen-init');
+}
+
+// ================= オンライン対戦管理 =================
+let isOnlineMode = false;
+let isHost = false;
+let peer = null;
+let conn = null;
+let onlinePeers = [];
+let myOnlineIndex = 0;
+let roomMembers = [];
+
+const PEER_PREFIX = 'mb-jp-4p-v5-';
+const FREE_LOBBY_ID = PEER_PREFIX + 'global-4p-lobby';
+
+function goToOnlineLobby() {
+  resetLobbyUI();
+  const select = document.getElementById('online-my-build-select');
+  select.innerHTML = '';
+  savedBuilds.forEach((b, idx) => {
+    select.innerHTML += `<option value="${idx}">${b.name} (攻:${b.stats.atk}/防:${b.stats.def}/盗:${b.stats.thief}/逆:${b.stats.rev})</option>`;
+  });
+  showScreen('screen-online-lobby');
+}
+
+function resetLobbyUI() {
+  document.getElementById('box-free-match').style.display = 'block';
+  document.getElementById('online-choice-container').style.display = 'grid';
+  document.getElementById('box-create-room').style.display = 'block';
+  document.getElementById('box-join-room').style.display = 'block';
+  document.getElementById('host-waiting-view').style.display = 'none';
+  document.getElementById('free-match-status').innerText = '';
+  document.getElementById('guest-status-msg').innerText = '';
+  document.getElementById('join-room-input').value = '';
+  document.getElementById('join-room-input').disabled = false;
+}
+
+function resetToTitle() {
+  if (peer) { peer.destroy(); peer = null; }
+  onlinePeers = [];
+  roomMembers = [];
+  isOnlineMode = false;
+  gameState.currentTurn = 1;
+  showScreen('screen-start');
+}
+
+function startFreeMatchmaking() {
+  isOnlineMode = true;
+  document.getElementById('online-choice-container').style.display = 'none';
+  document.getElementById('free-match-status').innerText = '対戦相手を探しています...';
+
+  if (peer) peer.destroy();
+  peer = new Peer(FREE_LOBBY_ID);
+
+  peer.on('open', () => {
+    isHost = true;
+    myOnlineIndex = 0;
+    const myName = document.getElementById('online-player-name').value.trim() || 'ホスト';
+    const myBuildIdx = parseInt(document.getElementById('online-my-build-select').value);
+    roomMembers = [{ id: peer.id, name: myName, build: savedBuilds[myBuildIdx] || savedBuilds[0], isCpu: false }];
+
+    document.getElementById('box-free-match').style.display = 'none';
+    document.getElementById('host-waiting-view').style.display = 'block';
+    document.getElementById('host-wait-title').innerText = `フリー対戦：メンバー待機中 (${roomMembers.length}/${playerCount})`;
+    document.getElementById('room-members-count').innerText = `参加人数: ${roomMembers.length} / ${playerCount}`;
+    document.getElementById('host-cpu-options').style.display = playerCount === 4 ? 'block' : 'none';
+    document.getElementById('created-room-code').innerText = 'FREE';
+  });
+
+  peer.on('connection', (connection) => {
+    if (!isHost) return;
+    connection.on('data', (data) => {
+      if (data.type === 'JOIN_ROOM') {
+        if (roomMembers.length < playerCount) {
+          roomMembers.push({ id: connection.peer, name: data.name, build: data.build, isCpu: false });
+          onlinePeers.push(connection);
+          broadcastToAll({ type: 'UPDATE_MEMBERS', members: roomMembers });
+
+          document.getElementById('host-wait-title').innerText = `フリー対戦：メンバー待機中 (${roomMembers.length}/${playerCount})`;
+          document.getElementById('room-members-count').innerText = `参加人数: ${roomMembers.length} / ${playerCount}`;
+
+          if (roomMembers.length === playerCount) {
+            setTimeout(startOnlineGameFromHost, 1000);
+          }
+        }
+      }
+    });
+  });
+
+  peer.on('error', (err) => {
+    if (err.type === 'unavailable-id') {
+      isHost = false;
+      document.getElementById('free-match-status').innerText = '待機中のロビーを発見！参加中...';
+      if (peer) peer.destroy();
+      peer = new Peer();
+
+      peer.on('open', () => {
+        conn = peer.connect(FREE_LOBBY_ID);
+        setupGuestConnectionEvents();
+      });
+    } else {
+      alert('通信エラー: ' + err.type);
+      resetLobbyUI();
+    }
+  });
+}
+
+function createPrivateRoom() {
+  const code = Math.floor(10000 + Math.random() * 90000).toString();
+  isOnlineMode = true;
+  isHost = true;
+  myOnlineIndex = 0;
+
+  document.getElementById('box-free-match').style.display = 'none';
+  document.getElementById('online-choice-container').style.display = 'none';
+  document.getElementById('host-waiting-view').style.display = 'block';
+  document.getElementById('host-cpu-options').style.display = playerCount === 4 ? 'block' : 'none';
+
+  if (peer) peer.destroy();
+  peer = new Peer(PEER_PREFIX + code);
+
+  peer.on('open', () => {
+    const myName = document.getElementById('online-player-name').value.trim() || 'ホスト';
+    const myBuildIdx = parseInt(document.getElementById('online-my-build-select').value);
+    roomMembers = [{ id: peer.id, name: myName, build: savedBuilds[myBuildIdx] || savedBuilds[0], isCpu: false }];
+
+    document.getElementById('created-room-code').innerText = code;
+    document.getElementById('host-wait-title').innerText = `部屋待機中 (${roomMembers.length}/${playerCount})`;
+    document.getElementById('room-members-count').innerText = `参加人数: ${roomMembers.length} / ${playerCount}`;
+  });
+
+  peer.on('connection', (connection) => {
+    if (!isHost) return;
+    connection.on('data', (data) => {
+      if (data.type === 'JOIN_ROOM') {
+        if (roomMembers.length < playerCount) {
+          roomMembers.push({ id: connection.peer, name: data.name, build: data.build, isCpu: false });
+          onlinePeers.push(connection);
+          broadcastToAll({ type: 'UPDATE_MEMBERS', members: roomMembers });
+
+          document.getElementById('host-wait-title').innerText = `部屋待機中 (${roomMembers.length}/${playerCount})`;
+          document.getElementById('room-members-count').innerText = `参加人数: ${roomMembers.length} / ${playerCount}`;
+
+          if (roomMembers.length === playerCount) {
+            setTimeout(startOnlineGameFromHost, 1000);
+          }
+        }
+      }
+    });
+  });
+
+  peer.on('error', (err) => {
+    alert('部屋の作成に失敗しました: ' + err.type);
+    resetLobbyUI();
+  });
+}
+
+function joinPrivateRoom() {
+  const code = document.getElementById('join-room-input').value.trim();
+  if (!/^\d{5}$/.test(code)) {
+    alert('5桁の半角数字を入力してください！');
+    return;
+  }
+  isOnlineMode = true;
+  isHost = false;
+
+  document.getElementById('box-free-match').style.display = 'none';
+  document.getElementById('box-create-room').style.display = 'none';
+  document.getElementById('guest-status-msg').innerText = '部屋に接続中...';
+  document.getElementById('join-room-input').disabled = true;
+
+  if (peer) peer.destroy();
+  peer = new Peer();
+
+  peer.on('open', () => {
+    conn = peer.connect(PEER_PREFIX + code);
+    setupGuestConnectionEvents();
+  });
+
+  peer.on('error', () => {
+    resetLobbyUI();
+    document.getElementById('guest-status-msg').innerText = '部屋が見つかりませんでした。';
+  });
+}
+
+function setupGuestConnectionEvents() {
+  conn.on('open', () => {
+    const myName = document.getElementById('online-player-name').value.trim() || 'ゲスト';
+    const myBuildIdx = parseInt(document.getElementById('online-my-build-select').value);
+    const myBuild = savedBuilds[myBuildIdx] || savedBuilds[0];
+
+    conn.send({ type: 'JOIN_ROOM', name: myName, build: myBuild });
+    document.getElementById('guest-status-msg').innerText = 'ホストからの開始を待っています...';
+  });
+
+  conn.on('data', (data) => {
+    handleGuestData(data);
+  });
+
+  conn.on('close', () => {
+    alert('ホストとの接続が切れました。');
+    resetToTitle();
+  });
+}
+
+function broadcastToAll(data) {
+  onlinePeers.forEach(p => {
+    if (p && p.open) p.send(data);
+  });
+}
+
+function fillRoomWithCPU() {
+  if (!isHost) return;
+  let cpuCount = 1;
+  while (roomMembers.length < playerCount) {
+    roomMembers.push({ id: 'cpu_' + roomMembers.length, name: `CPU ${cpuCount}`, build: savedBuilds[0], isCpu: true });
+    cpuCount++;
+  }
+  broadcastToAll({ type: 'UPDATE_MEMBERS', members: roomMembers });
+  startOnlineGameFromHost();
+}
+
+function startOnlineGameFromHost() {
+  gameState.currentTurn = 1;
+  gameState.players = roomMembers.map(m => createPlayerFromBuild(m.name, m.build, m.isCpu));
+  applyShopItems();
+
+  broadcastToAll({
+    type: 'START_SHOP',
+    players: gameState.players,
+    initialMoney: gameState.initialMoney
+  });
+
+  openShopForPlayerIndex(0);
+}
+
+function handleGuestData(data) {
+  if (data.type === 'UPDATE_MEMBERS') {
+    document.getElementById('guest-status-msg').innerText = `メンバー集結中 (${data.members.length}/${playerCount})...`;
+  }
+  else if (data.type === 'START_SHOP') {
+    gameState.players = data.players;
+    gameState.initialMoney = data.initialMoney;
+    myOnlineIndex = roomMembers.findIndex(m => m.id === peer.id);
+    if (myOnlineIndex === -1) myOnlineIndex = 1;
+    openShopForPlayerIndex(myOnlineIndex);
+  }
+  else if (data.type === 'START_ACTION') {
+    gameState.players = data.players;
+    openActionForPlayer(gameState.players[myOnlineIndex]);
+  }
+  else if (data.type === 'RESOLVE_TURN') {
+    gameState.players = data.players;
+    showTurnResult(data.logs);
+  }
+  else if (data.type === 'GAME_OVER') {
+    gameState.players = data.players;
+    showGameOver(data.winnerMessage);
+  }
+}
+
+// ================= ショップシステム =================
+const SHOP_ITEMS_CATALOG = [
+  { id: 'abs', name: '絶対攻撃', cost2p: 20, cost4p: 30, desc: '防御・カウンター・壁を1度だけ突破してダメージを与える', max: 2 },
+  { id: 'cure', name: '解毒剤', cost2p: 25, cost4p: 25, desc: '付与された毒をその場で即座に解除する（最大2個まで）', max: 2 },
+  { id: 'skillcharge', name: 'スキルチャージ', cost2p: 20, cost4p: 20, desc: 'スキル使用回数が+1回増える（最大4個まで）', max: 4 },
+  { id: 'short', name: '短期決戦', cost2p: 15, cost4p: 15, desc: '全員の体力を3減らしてスタートする（最大2個まで）', max: 2 },
+  { id: 'fatigue', name: '疲労', cost2p: 10, cost4p: 10, desc: '最初から最大HPを削り、背水の陣を発動しやすくする（最大5個まで）', max: 5 },
+  { id: 'charge', name: 'スタートダッシュ', cost2p: 10, cost4p: 10, desc: '最初から溜めが1つ溜まった状態になる（最大2個まで）', max: 2 },
+  { id: 'hp', name: '疑似体力増加', cost2p: 5, cost4p: 5, desc: '体力が0.5増える（最大4個まで）', max: 4 }
+];
+
+let currentShopPlayerIdx = 0;
+
+function startShopPhaseFromLocal() {
+  gameState.currentTurn = 1;
+  gameState.players = [];
+
+  for (let i = 0; i < playerCount; i++) {
+    const name = document.getElementById(`p${i}-name-input`).value.trim() || `プレイヤー${i+1}`;
+    const buildIdx = parseInt(document.getElementById(`p${i}-build-select`).value);
+    const isCpu = document.getElementById(`p${i}-cpu-check`) ? document.getElementById(`p${i}-cpu-check`).checked : false;
+    gameState.players.push(createPlayerFromBuild(name, savedBuilds[buildIdx] || savedBuilds[0], isCpu));
+  }
+
+  applyShopItems();
+  openShopForPlayerIndex(0);
+}
+
+function openShopForPlayerIndex(idx) {
+  currentShopPlayerIdx = idx;
+  const p = gameState.players[idx];
+
+  if (p.isCpu && gameMode === 'local') {
+    finishPlayerShop();
+    return;
+  }
+
+  renderShop();
+  showScreen('screen-shop');
+}
+
+function renderShop() {
+  const p = gameState.players[currentShopPlayerIdx];
+  document.getElementById('shop-player-title').innerText = `${p.name} (${p.buildName})`;
+  document.getElementById('shop-points').innerText = p.money;
+
+  const container = document.getElementById('item-list-container');
+  container.innerHTML = '';
+
+  SHOP_ITEMS_CATALOG.forEach(item => {
+    const cost = playerCount === 4 ? item.cost4p : item.cost2p;
+    const count = p.items[item.id] || 0;
+    const isMax = count >= (item.max || 2);
+    const canAfford = p.money >= cost;
+
+    const div = document.createElement('div');
+    div.className = 'item-card';
+    div.innerHTML = `
+      <div class="item-info">
+        <div class="item-name">${item.name} (${cost}pt)</div>
+        <div class="item-desc">${item.desc}</div>
+      </div>
+      <div class="item-controls">
+        <button class="btn" onclick="buyItem('${item.id}')" ${(!canAfford || isMax) ? 'disabled' : ''}>
+          ${isMax ? '品切れ' : '購入'}
+        </button>
+        <button class="btn btn-danger" onclick="refundItem('${item.id}')" ${count <= 0 ? 'disabled' : ''}>
+          減らす
+        </button>
+        <span class="item-count">×${count}</span>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function buyItem(itemId) {
+  const p = gameState.players[currentShopPlayerIdx];
+  const item = SHOP_ITEMS_CATALOG.find(i => i.id === itemId);
+  const cost = playerCount === 4 ? item.cost4p : item.cost2p;
+  const maxLimit = item.max || 2;
+
+  if (p.money >= cost && (p.items[itemId] || 0) < maxLimit) {
+    p.money -= cost;
+    p.items[itemId] = (p.items[itemId] || 0) + 1;
+    renderShop();
+  }
+}
+
+function refundItem(itemId) {
+  const p = gameState.players[currentShopPlayerIdx];
+  const item = SHOP_ITEMS_CATALOG.find(i => i.id === itemId);
+  const cost = playerCount === 4 ? item.cost4p : item.cost2p;
+
+  if ((p.items[itemId] || 0) > 0) {
+    p.money += cost;
+    p.items[itemId] -= 1;
+    renderShop();
+  }
+}
+
+function applyShopItems() {
+  gameState.players.forEach(p => {
+    let baseHp = 8.0;
+    baseHp += (p.items.hp || 0) * 0.5;
+    p.maxHpOriginal = baseHp;
+    p.hp = baseHp;
+    p.maxHp = baseHp;
+    p.chargeCount += (p.items.charge || 0);
+    p.maxSkillUses += (p.items.skillcharge || 0);
+  });
+
+  let totalShort = gameState.players.reduce((sum, p) => sum + (p.items.short || 0), 0);
+  if (totalShort > 0) {
+    let reduction = totalShort * 3;
+    gameState.players.forEach(p => {
+      p.hp = Math.max(1, p.hp - reduction);
+    });
+  }
+
+  gameState.players.forEach(p => {
+    if (p.items.fatigue > 0) {
+      p.hp = Math.max(0.5, p.hp - p.items.fatigue);
+    }
+  });
+}
+
+function finishPlayerShop() {
+  let nextIdx = currentShopPlayerIdx + 1;
+  if (nextIdx < playerCount) {
+    if (gameMode === 'local') {
+      gameState.passTarget = `SHOP_P${nextIdx}`;
+      document.getElementById('pass-title').innerText = `${gameState.players[nextIdx].name}のショップタイム`;
+      document.getElementById('pass-msg').innerText = `画面を ${gameState.players[nextIdx].name} に渡してください。`;
+      showScreen('screen-pass');
+    } else {
+      openShopForPlayerIndex(nextIdx);
+    }
+  } else {
+    if (gameMode === 'local') {
+      gameState.passTarget = 'ACTION_P0';
+      document.getElementById('pass-title').innerText = `ターン 1：${gameState.players[0].name}の番`;
+      document.getElementById('pass-msg').innerText = `画面を ${gameState.players[0].name} に渡してください。`;
+      showScreen('screen-pass');
+    } else {
+      if (isHost) {
+        startBattlePhaseForEveryone();
+      } else {
+        showScreen('screen-online-wait');
+        document.getElementById('wait-title').innerText = '他のプレイヤーのショップを待っています...';
+      }
+    }
+  }
+}
+
+function proceedAfterPass() {
+  if (gameState.passTarget.startsWith('SHOP_P')) {
+    let idx = parseInt(gameState.passTarget.replace('SHOP_P', ''));
+    openShopForPlayerIndex(idx);
+  } else if (gameState.passTarget.startsWith('ACTION_P')) {
+    let idx = parseInt(gameState.passTarget.replace('ACTION_P', ''));
+    openActionForPlayer(gameState.players[idx]);
+  }
+}
+
+// ================= バトル・アクションシステム =================
+const ACTIONS_2P = {
+  ATTACK: { id: 'ATTACK', name: '攻撃', desc: '溜め・スキルを突破。防御・カウンターに弱い。' },
+  CHARGE_ATTACK: { id: 'CHARGE_ATTACK', name: '溜め攻撃', desc: '【溜め必要】強力な攻撃。' },
+  DEFENSE: { id: 'DEFENSE', name: '防御', desc: '攻撃・毒を防ぐ。(相手攻撃力250%超で貫通)' },
+  COUNTER: { id: 'COUNTER', name: 'カウンター', desc: '攻撃に反撃。' },
+  CHARGE: { id: 'CHARGE', name: '溜め', desc: '次ターン以降強力な溜め攻撃が可能に。' },
+  WALL: { id: 'WALL', name: '壁（スキル）', desc: '【回数制】攻撃を防ぐ。毒は貫通。' },
+  POISON: { id: 'POISON', name: '毒（スキル）', desc: '【回数制】3ターン後に2ダメ。防御でのみ防がれる。' },
+  SEAL: { id: 'SEAL', name: '封印（スキル）', desc: '【溜め2必要】相手の技を封じる。' },
+  REVIVAL: { id: 'REVIVAL', name: '一発逆転アタック', desc: '相手が攻撃なら即勝利。' }
+};
+
+const ACTIONS_4P = {
+  ATTACK: { id: 'ATTACK', name: '攻撃', desc: '誰か1人を攻撃する。' },
+  CHARGE_ATTACK: { id: 'CHARGE_ATTACK', name: '溜め攻撃', desc: '【溜め1必要】誰か1人に強力な攻撃。' },
+  AREA_ATTACK: { id: 'AREA_ATTACK', name: '範囲攻撃', desc: '【溜め1必要】全員を攻撃する。' },
+  CHARGE_AREA_ATTACK: { id: 'CHARGE_AREA_ATTACK', name: 'ため範囲攻撃', desc: '【溜め2必要】全員に超強力な範囲攻撃。' },
+  DEFENSE: { id: 'DEFENSE', name: '防御', desc: '全員からの攻撃を防ぐ（全員から計250%超で破壊）。' },
+  COUNTER: { id: 'COUNTER', name: 'カウンター', desc: '指定した1人からの攻撃を受けると反撃する。' },
+  CHARGE: { id: 'CHARGE', name: '溜め', desc: '力を溜める。' },
+  WALL: { id: 'WALL', name: '壁（スキル）', desc: '【回数制】全員からの攻撃を毒以外防ぐ。' },
+  POISON: { id: 'POISON', name: '毒（スキル）', desc: '【回数制】指定した1人に毒を付与する。' }
+};
+
+function createPlayerFromBuild(name, build, isCpu = false) {
+  let baseMoney = gameState.initialMoney;
+  let calculatedMoney = Math.round(baseMoney * Math.pow(1.1, build.stats.thief));
+
+  return {
+    name: name,
+    buildName: build.name,
+    stats: { ...build.stats },
+    money: calculatedMoney,
+    hp: 8.0,
+    maxHp: 8.0,
+    maxHpOriginal: 8.0,
+    chargeCount: 0,
+    items: {},
+    maxSkillUses: 1,
+    usedSkillWallCount: 0,
+    usedSkillPoisonCount: 0,
+    usedSkillSealCount: 0,
+    usedAbsAttack: false,
+    poisonCount: 0,
+    sealedAction: null,
+    selectedAction: null,
+    targetIndex: 0,
+    useAbsolute: false,
+    isCpu: isCpu
+  };
+}
+
+function isRevivalActive(player) {
+  return (player.hp <= player.maxHpOriginal / 2 && player.stats.rev > 0);
+}
+
+function getStatMultiplier(player, type) {
+  let lv = player.stats[type] || 0;
+  let baseMult = Math.pow(1.2, lv);
+  if (isRevivalActive(player)) {
+    let missingHp = Math.max(0, player.maxHpOriginal - player.hp);
+    let revBonus = Math.pow(1.0532, missingHp * player.stats.rev);
+    return baseMult * revBonus;
+  }
+  return baseMult;
+}
+
+function openActionForPlayer(player) {
+  currentActionPlayer = player;
+  tempSelectedAction = null;
+  tempSelectedTarget = 0;
+  tempUseAbsoluteAttack = false;
+
+  if (player.isCpu && gameMode === 'local') {
+    executeCpuAction(player);
+    return;
+  }
+
+  renderStatusBar();
+
+  const absContainer = document.getElementById('absolute-attack-container');
+  if ((player.items.abs || 0) > 0 && !player.usedAbsAttack) {
+    absContainer.style.display = 'block';
+    document.getElementById('checkbox-abs-attack').checked = false;
+  } else {
+    absContainer.style.display = 'none';
+  }
+
+  document.getElementById('action-player-title').innerText = `${player.name} (${player.buildName}) の行動選択`;
+  document.getElementById('current-turn-label').innerText = `Turn ${gameState.currentTurn}`;
+
+  renderTargetSelect();
+  renderActionButtons();
+  showScreen('screen-action');
+}
+
+function renderStatusBar() {
+  const container = document.getElementById('action-status-bar');
+  container.innerHTML = '';
+  gameState.players.forEach((p, idx) => {
+    let itemDiv = document.createElement('div');
+    itemDiv.className = 'status-item';
+    itemDiv.innerHTML = `
+      <strong style="color:var(--accent-p${idx+1});">${p.name}</strong>
+      <div class="gauge-container"><div class="gauge-fill hp-fill" style="width:${Math.max(0, Math.min(100, (p.hp/p.maxHp)*100))}%"></div></div>
+      <div class="gauge-text"><span>HP: ${p.hp}/${p.maxHp}</span><span>🔥:${p.chargeCount}</span></div>
+    `;
+    container.appendChild(itemDiv);
+  });
+}
+
+function renderTargetSelect() {
+  const container = document.getElementById('target-select-container');
+  const select = document.getElementById('action-target-select');
+  select.innerHTML = '';
+
+  gameState.players.forEach((p, idx) => {
+    if (p !== currentActionPlayer) {
+      let opt = document.createElement('option');
+      opt.value = idx;
+      opt.text = p.name;
+      select.appendChild(opt);
+    }
+  });
+  container.style.display = playerCount === 4 ? 'block' : 'none';
+}
+
+function toggleAbsoluteAttack(checkbox) {
+  tempUseAbsoluteAttack = checkbox.checked;
+}
+
+function renderActionButtons() {
+  const container = document.getElementById('actions-container');
+  container.innerHTML = '';
+  const p = currentActionPlayer;
+  const actionsMap = playerCount === 4 ? ACTIONS_4P : ACTIONS_2P;
+
+  Object.values(actionsMap).forEach(act => {
+    let disabled = false;
+    let reason = '';
+
+    if (act.id === 'CHARGE_ATTACK' && p.chargeCount < 1) { disabled = true; reason = '（溜め1必要）'; }
+    if (act.id === 'AREA_ATTACK' && p.chargeCount < 1) { disabled = true; reason = '（溜め1必要）'; }
+    if (act.id === 'CHARGE_AREA_ATTACK' && p.chargeCount < 2) { disabled = true; reason = '（溜め2必要）'; }
+    if (act.id === 'SEAL' && p.chargeCount < 2) { disabled = true; reason = '（溜め2必要）'; }
+
+    if (act.id === 'WALL') {
+      const remaining = p.maxSkillUses - p.usedSkillWallCount;
+      if (remaining <= 0) { disabled = true; reason = '（回数切れ）'; }
+      else reason = `（残り${remaining}回）`;
+    }
+    if (act.id === 'POISON') {
+      const remaining = p.maxSkillUses - p.usedSkillPoisonCount;
+      if (remaining <= 0) { disabled = true; reason = '（回数切れ）'; }
+      else reason = `（残り${remaining}回）`;
+    }
+
+    const btn = document.createElement('div');
+    btn.className = `action-btn ${tempSelectedAction === act.id ? 'selected' : ''}`;
+    if (disabled) btn.style.opacity = '0.4';
+    btn.innerHTML = `
+      <div class="action-title">${act.name} ${reason}</div>
+      <div class="action-detail">${act.desc}</div>
+    `;
+    if (!disabled) btn.onclick = () => selectAction(act.id);
+    container.appendChild(btn);
+  });
+}
+
+function selectAction(actId) {
+  tempSelectedAction = actId;
+  renderActionButtons();
+  document.getElementById('confirm-action-btn').disabled = false;
+}
+
+function confirmAction() {
+  currentActionPlayer.selectedAction = tempSelectedAction;
+  currentActionPlayer.useAbsolute = tempUseAbsoluteAttack;
+  if (playerCount === 4) {
+    const select = document.getElementById('action-target-select');
+    currentActionPlayer.targetIndex = parseInt(select.value);
+  } else {
+    currentActionPlayer.targetIndex = gameState.players.findIndex(p => p !== currentActionPlayer);
+  }
+
+  if (gameMode === 'local') {
+    let nextIdx = gameState.players.indexOf(currentActionPlayer) + 1;
+    if (nextIdx < playerCount) {
+      gameState.passTarget = `ACTION_P${nextIdx}`;
+      document.getElementById('pass-title').innerText = `ターン ${gameState.currentTurn}：${gameState.players[nextIdx].name}の番`;
+      document.getElementById('pass-msg').innerText = `画面を ${gameState.players[nextIdx].name} に渡してください。`;
+      showScreen('screen-pass');
+    } else {
+      startCountdown();
+    }
+  } else {
+    if (isHost) {
+      checkAllActionsReady();
+    } else {
+      conn.send({
+        type: 'PLAYER_ACTION',
+        index: myOnlineIndex,
+        action: currentActionPlayer.selectedAction,
+        targetIndex: currentActionPlayer.targetIndex,
+        useAbsolute: currentActionPlayer.useAbsolute
+      });
+      showScreen('screen-online-wait');
+    }
+  }
+}
+
+function executeCpuAction(cpu) {
+  const actions = playerCount === 4 ? Object.values(ACTIONS_4P) : Object.values(ACTIONS_2P);
+  let validActs = actions.filter(a => {
+    if (a.id === 'CHARGE_ATTACK' && cpu.chargeCount < 1) return false;
+    if (a.id === 'AREA_ATTACK' && cpu.chargeCount < 1) return false;
+    if (a.id === 'CHARGE_AREA_ATTACK' && cpu.chargeCount < 2) return false;
+    return true;
+  });
+  let chosen = validActs[Math.floor(Math.random() * validActs.length)];
+  cpu.selectedAction = chosen.id;
+  cpu.useAbsolute = false;
+  let targets = gameState.players.map((p, idx) => idx).filter(idx => gameState.players[idx] !== cpu);
+  cpu.targetIndex = targets[Math.floor(Math.random() * targets.length)];
+
+  let nextIdx = gameState.players.indexOf(cpu) + 1;
+  if (nextIdx < playerCount) {
+    openActionForPlayer(gameState.players[nextIdx]);
+  } else {
+    startCountdown();
+  }
+}
+
+function checkAllActionsReady() {
+  let allReady = gameState.players.every(p => p.isCpu || p.selectedAction !== null);
+  if (allReady) {
+    resolveTurn();
+  }
+}
+
+function startCountdown() {
+  showScreen('screen-count');
+  let count = 5;
+  const numElem = document.getElementById('countdown-num');
+  numElem.innerText = count;
+
+  const timer = setInterval(() => {
+    count--;
+    if (count > 0) {
+      numElem.innerText = count;
+    } else {
+      clearInterval(timer);
+      if (gameMode === 'local' || isHost) {
+        resolveTurn();
+      }
+    }
+  }, 1000);
+}
+
+// ================= ターン結果の計算 =================
+function resolveTurn() {
+  const ps = gameState.players;
+  const logs = [];
+  logs.push(`【ターン ${gameState.currentTurn} 判定結果】`);
+
+  ps.forEach(p => {
+    if (p.selectedAction === 'WALL') p.usedSkillWallCount++;
+    if (p.selectedAction === 'POISON') p.usedSkillPoisonCount++;
+  });
+
+  let damages = new Array(ps.length).fill(0);
+
+  if (playerCount === 2) {
+    let p1 = ps[0], p2 = ps[1];
+    let a1 = p1.selectedAction, a2 = p2.selectedAction;
+    let atk1 = getStatMultiplier(p1, 'atk'), def1 = getStatMultiplier(p1, 'def');
+    let atk2 = getStatMultiplier(p2, 'atk'), def2 = getStatMultiplier(p2, 'def');
+
+    logs.push(`${p1.name}: ${a1} vs ${p2.name}: ${a2}`);
+
+    if (p1.useAbsolute && (a1 === 'ATTACK' || a1 === 'CHARGE_ATTACK')) { p1.items.abs--; p1.usedAbsAttack = true; logs.push(`${p1.name}の「絶対攻撃」発動！`); }
+    if (p2.useAbsolute && (a2 === 'ATTACK' || a2 === 'CHARGE_ATTACK')) { p2.items.abs--; p2.usedAbsAttack = true; logs.push(`${p2.name}の「絶対攻撃」発動！`); }
+
+    if (a1 === 'CHARGE') { p1.chargeCount++; logs.push(`${p1.name}は力を溜めた。`); }
+    if (a2 === 'CHARGE') { p2.chargeCount++; logs.push(`${p2.name}は力を溜めた。`); }
+
+    if (a1 === 'ATTACK' || a1 === 'CHARGE_ATTACK') {
+      let isC = a1 === 'CHARGE_ATTACK';
+      if (isC) p1.chargeCount--;
+      let pow = isC ? 1.5 : 1.0;
+      let totalAtk = atk1 * pow;
+
+      if (a2 === 'DEFENSE' || a2 === 'WALL') {
+        if (p1.useAbsolute) {
+          damages[1] += Math.max(1, Math.round(totalAtk / def2));
+        } else if (a2 === 'DEFENSE' && totalAtk > 2.5 * def2) {
+          let d = Math.round(totalAtk - 2.5 * def2);
+          damages[1] += d;
+          logs.push(`${p1.name}の攻撃が防御を破壊！`);
+        } else {
+          logs.push(`${p1.name}の攻撃は防がれた。`);
+        }
+      } else if (a2 === 'COUNTER') {
+        if (p1.useAbsolute) {
+          damages[1] += Math.max(1, Math.round(totalAtk / def2));
+        } else {
+          damages[0] += Math.max(1, Math.round(atk2 / def1));
+          logs.push(`${p2.name}のカウンター成功！`);
+        }
+      } else {
+        damages[1] += Math.max(1, Math.round(totalAtk / def2));
+      }
+    }
+
+    if (a2 === 'ATTACK' || a2 === 'CHARGE_ATTACK') {
+      let isC = a2 === 'CHARGE_ATTACK';
+      if (isC) p2.chargeCount--;
+      let pow = isC ? 1.5 : 1.0;
+      let totalAtk = atk2 * pow;
+
+      if (a1 === 'DEFENSE' || a1 === 'WALL') {
+        if (p2.useAbsolute) {
+          damages[0] += Math.max(1, Math.round(totalAtk / def1));
+        } else if (a1 === 'DEFENSE' && totalAtk > 2.5 * def1) {
+          let d = Math.round(totalAtk - 2.5 * def1);
+          damages[0] += d;
+          logs.push(`${p2.name}の攻撃が防御を破壊！`);
+        } else {
+          logs.push(`${p2.name}の攻撃は防がれた。`);
+        }
+      } else if (a1 === 'COUNTER') {
+        if (p2.useAbsolute) {
+          damages[0] += Math.max(1, Math.round(totalAtk / def1));
+        } else {
+          damages[1] += Math.max(1, Math.round(atk1 / def2));
+          logs.push(`${p1.name}のカウンター成功！`);
+        }
+      } else {
+        damages[0] += Math.max(1, Math.round(totalAtk / def1));
+      }
+    }
+
+  } else {
+    ps.forEach((p, idx) => {
+      let act = p.selectedAction;
+      let atk = getStatMultiplier(p, 'atk');
+      let target = p.targetIndex;
+
+      if (p.useAbsolute && (act === 'ATTACK' || act === 'CHARGE_ATTACK' || act === 'AREA_ATTACK')) {
+        p.items.abs--; p.usedAbsAttack = true;
+        logs.push(`${p.name}の「絶対攻撃」発動！`);
+      }
+
+      if (act === 'CHARGE') { p.chargeCount++; logs.push(`${p.name}は力を溜めた。`); }
+
+      if (act === 'ATTACK' || act === 'CHARGE_ATTACK' || act === 'AREA_ATTACK' || act === 'CHARGE_AREA_ATTACK') {
+        let isArea = (act === 'AREA_ATTACK' || act === 'CHARGE_AREA_ATTACK');
+        let isCharge = (act === 'CHARGE_ATTACK' || act === 'CHARGE_AREA_ATTACK' || act === 'AREA_ATTACK' && p.chargeCount >= 1);
+        
+        if (act === 'CHARGE_ATTACK' || act === 'AREA_ATTACK') p.chargeCount--;
+        if (act === 'CHARGE_AREA_ATTACK') p.chargeCount -= 2;
+
+        let basePow = (act === 'CHARGE_AREA_ATTACK') ? 2.0 : (isCharge ? 1.5 : 1.0);
+        let totalAtk = atk * basePow;
+
+        let targets = isArea ? ps.map((_, i) => i).filter(i => i !== idx) : [target];
+
+        targets.forEach(tIdx => {
+          let targetP = ps[tIdx];
+          let tDef = getStatMultiplier(targetP, 'def');
+          let tAct = targetP.selectedAction;
+
+          if (tAct === 'DEFENSE' || tAct === 'WALL') {
+            if (p.useAbsolute) {
+              damages[tIdx] += Math.max(1, Math.round(totalAtk / tDef));
+              logs.push(`${p.name}の絶対攻撃が${targetP.name}の防御を貫通！`);
+            } else if (tAct === 'DEFENSE' && totalAtk > 2.5 * tDef) {
+              let d = Math.round(totalAtk - 2.5 * tDef);
+              damages[tIdx] += d;
+              logs.push(`${p.name}の攻撃力が${targetP.name}の防御を破壊！`);
+            } else {
+              logs.push(`${targetP.name}は防御して攻撃を防いだ。`);
+            }
+          } else if (tAct === 'COUNTER' && targetP.targetIndex === idx) {
+            if (p.useAbsolute) {
+              damages[tIdx] += Math.max(1, Math.round(totalAtk / tDef));
+            } else {
+              damages[idx] += Math.max(1, Math.round(getStatMultiplier(targetP, 'atk') / getStatMultiplier(p, 'def')));
+              logs.push(`${targetP.name}のカウンターが${p.name}に直撃！`);
+            }
+          } else {
+            damages[tIdx] += Math.max(1, Math.round(totalAtk / tDef));
+            logs.push(`${p.name}の攻撃が${targetP.name}に命中！`);
+          }
+        });
+      }
+    });
+  }
+
+  ps.forEach((p, idx) => {
+    p.hp = Math.max(0, p.hp - damages[idx]);
+  });
+
+  showTurnResult(logs);
+
+  if (gameMode === 'online' && isHost) {
+    broadcastToAll({
+      type: 'RESOLVE_TURN',
+      players: ps,
+      logs: logs
+    });
+  }
+}
+
+function showTurnResult(logs) {
+  document.getElementById('res-turn-num').innerText = gameState.currentTurn;
+  const board = document.getElementById('result-board-container');
+  board.innerHTML = '';
+
+  gameState.players.forEach((p, idx) => {
+    let card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <h3 style="color:var(--accent-p${idx+1});">${p.name}</h3>
+      <div>選択: <strong>${p.selectedAction || '-'}</strong></div>
+      <div class="gauge-container"><div class="gauge-fill hp-fill" style="width:${Math.max(0, Math.min(100, (p.hp/p.maxHp)*100))}%"></div></div>
+      <div class="gauge-text"><span>HP: ${p.hp}/${p.maxHp}</span></div>
+    `;
+    board.appendChild(card);
+  });
+
+  const logBox = document.getElementById('result-logs');
+  logBox.innerHTML = logs.map(l => `<div>${l}</div>`).join('');
+  showScreen('screen-result');
+}
+
+function nextTurnOrEnd() {
+  let alivePlayers = gameState.players.filter(p => p.hp > 0);
+  if (alivePlayers.length <= 1 || gameState.currentTurn >= 20) {
+    let winner = alivePlayers.length === 1 ? `${alivePlayers[0].name} の勝利！` : '引き分け！';
+    showGameOver(winner);
+    if (gameMode === 'online' && isHost) {
+      broadcastToAll({ type: 'GAME_OVER', players: gameState.players, winnerMessage: winner });
+    }
+    return;
+  }
+
+  if (gameMode === 'local' || isHost) {
+    gameState.currentTurn++;
+    if (gameMode === 'local') {
+      gameState.passTarget = 'ACTION_P0';
+      document.getElementById('pass-title').innerText = `ターン ${gameState.currentTurn}：${gameState.players[0].name}の番`;
+      document.getElementById('pass-msg').innerText = `画面を ${gameState.players[0].name} に渡してください。`;
+      showScreen('screen-pass');
+    } else {
+      broadcastToAll({ type: 'START_ACTION', players: gameState.players });
+      openActionForPlayer(gameState.players[myOnlineIndex]);
+    }
+  } else {
+    showScreen('screen-online-wait');
+    document.getElementById('wait-title').innerText = 'ホストの次ターン開始を待っています...';
+  }
+}
+
+function showGameOver(msg) {
+  document.getElementById('gameover-desc').innerText = msg;
+  showScreen('screen-gameover');
+}
+
+function startBattlePhaseForEveryone() {
+  applyShopItems();
+  broadcastToAll({
+    type: 'START_ACTION',
+    players: gameState.players
+  });
+  openActionForPlayer(gameState.players[myOnlineIndex]);
+}
+
+let gameState = {
+  currentTurn: 1,
+  initialMoney: 30,
+  players: [],
+  passTarget: 'ACTION_P0'
+};
+</script>
+</body>
+</html>
